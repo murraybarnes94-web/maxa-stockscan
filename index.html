@@ -564,21 +564,49 @@ function analysePartImage(){
   document.getElementById('aiStatusText').textContent='Identifying part...';
   document.getElementById('partsResults').style.display='none';
   var plist=MAXA_PRODUCTS.map(function(p,i){return i+'. '+p.name+' ['+p.category+']';}).join('\n');
+  // Verify key looks valid before attempting
+  if(!key||key.length<20){
+    st.className='ai-status error';
+    document.getElementById('aiStatusText').textContent='No API key found - please add it in Settings';
+    return;
+  }
+
   fetch('https://api.anthropic.com/v1/messages',{
     method:'POST',
-    headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-    body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:[{role:'user',content:[
-      {type:'image',source:{type:'base64',media_type:'image/jpeg',data:b64}},
-      {type:'text',text:'You are a specialist parts identifier for MAXA Group, a UK supplier of trailer parts and welfare unit components.\n\nAnalyse this image and:\n1. Identify the part shown\n2. Select the top 3 matching product categories from:\n'+plist+'\n\nRespond ONLY as valid JSON (no markdown):\n{"part_description":"brief description","matches":[{"index":0,"confidence":"high|medium|low","reason":"one sentence"}]}\n\nIf unclear: {"part_description":"Unable to identify clearly","matches":[]}'}
-    ]}]})
-  }).then(function(resp){return resp.json();}).then(function(data){
+    headers:{
+      'Content-Type':'application/json',
+      'x-api-key':key,
+      'anthropic-version':'2023-06-01',
+      'anthropic-dangerous-direct-browser-access':'true'
+    },
+    body:JSON.stringify({
+      model:'claude-sonnet-4-20250514',
+      max_tokens:1000,
+      messages:[{role:'user',content:[
+        {type:'image',source:{type:'base64',media_type:'image/jpeg',data:b64}},
+        {type:'text',text:'You are a specialist parts identifier for MAXA Group, a UK supplier of trailer parts and welfare unit components.\n\nAnalyse this image and:\n1. Identify the part shown\n2. Select the top 3 matching product categories from:\n'+plist+'\n\nRespond ONLY as valid JSON (no markdown):\n{"part_description":"brief description","matches":[{"index":0,"confidence":"high|medium|low","reason":"one sentence"}]}\n\nIf unclear: {"part_description":"Unable to identify clearly","matches":[]}'}
+      ]}]
+    })
+  }).then(function(resp){
+    if(!resp.ok){
+      return resp.json().then(function(e){
+        throw new Error('API error '+resp.status+': '+(e.error&&e.error.message||resp.statusText));
+      });
+    }
+    return resp.json();
+  }).then(function(data){
     var text=data.content.map(function(c){return c.text||'';}).join('');
     var parsed=JSON.parse(text.replace(/```json|```/g,'').trim());
     st.className='ai-status';
     renderPartsResults(parsed);
   }).catch(function(e){
     st.className='ai-status error';
-    document.getElementById('aiStatusText').textContent='Error: '+(e.message||'Please try again');
+    document.getElementById('aiStatusText').textContent='Error: '+(e.message||'Unknown error');
+    // If auth error, clear the key so user can re-enter
+    if(e.message&&e.message.indexOf('401')>-1){
+      localStorage.removeItem('maxa_api_key');
+      document.getElementById('aiStatusText').textContent='Invalid API key - please update in Settings';
+    }
   });
 }
 function renderPartsResults(data){
