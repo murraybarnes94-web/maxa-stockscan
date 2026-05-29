@@ -183,6 +183,7 @@ input[type=file]{display:none;}
       <div class="icon-ring"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#F5C800" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3M17 17h3v3M14 20h3"/></svg></div>
       <p>Tap to scan barcode / QR code</p>
     </div>
+    <div id="scanPrompt" style="display:none;position:absolute;bottom:14px;left:0;right:0;text-align:center;pointer-events:none;"><span style="background:rgba(245,200,0,0.9);color:#111;font-size:12px;font-weight:700;padding:5px 14px;border-radius:20px;">Point at barcode...</span></div>
   </div>
   <div class="manual-row">
     <input type="text" id="manualPart" placeholder="Or type part number manually...">
@@ -323,18 +324,19 @@ function startBarcodeCamera(){
     document.getElementById('scanIdle').style.display='none';
     document.getElementById('scanArea').classList.add('live');
     barcodeScanning=true;
+    document.getElementById('barcodeVideo').style.display='block';
+    // Show a "ready" indicator
+    document.getElementById('scanPrompt').style.display='block';
     zxingReader.decodeFromVideoDevice(null,'barcodeVideo',function(result,err){
-      if(result){
-        var now=Date.now();
+      if(result&&barcodeScanning){
         var text=result.getText().trim().toUpperCase();
-        if(text!==lastScanned||now-lastScannedTime>2000){
-          lastScanned=text;lastScannedTime=now;
-          addPartToBasket(text);
-          if(navigator.vibrate)navigator.vibrate(80);
-        }
+        // Stop scanning immediately after one result
+        stopBarcodeCamera();
+        addPartToBasket(text);
+        if(navigator.vibrate)navigator.vibrate(80);
+        showToast('Tap camera to scan next item','info');
       }
     });
-    document.getElementById('barcodeVideo').style.display='block';
   }catch(e){showToast('Camera unavailable - use manual entry','error');barcodeScanning=false;}
 }
 function stopBarcodeCamera(){
@@ -343,6 +345,7 @@ function stopBarcodeCamera(){
   barcodeScanning=false;
   document.getElementById('barcodeVideo').style.display='none';
   document.getElementById('scanIdle').style.display='';
+  document.getElementById('scanPrompt').style.display='none';
   document.getElementById('scanArea').classList.remove('live');
 }
 function scanLoop(){}
@@ -516,8 +519,7 @@ function analysePartImage(){
     document.getElementById('partsVideo').style.display='none';
     if(partsStream){partsStream.getTracks().forEach(function(t){t.stop();});partsStream=null;}
   }
-  var key=localStorage.getItem('maxa_api_key')||'';
-  if(!key){var k=prompt('Enter your Anthropic API key to enable Parts ID:');if(!k)return;localStorage.setItem('maxa_api_key',k.trim());key=k.trim();}
+  var key=localStorage.getItem('maxa_api_key')||'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';
   var st=document.getElementById('aiStatus');
   st.className='ai-status loading';
   document.getElementById('aiStatusText').textContent='Identifying part...';
