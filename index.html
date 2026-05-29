@@ -242,11 +242,41 @@ input[type=file]{display:none;}
     </div>
   </div>
   <div class="sblock">
+    <div class="sblock-title">Parts ID</div>
+    <div class="card" style="margin-bottom:0">
+      <p style="font-size:13px;color:var(--text2);margin-bottom:12px">Update your Anthropic API key for the Parts ID feature.</p>
+      <div class="field" style="margin-bottom:10px"><label>API Key</label><input type="text" id="settingsApiKey" class="sinput" placeholder="sk-ant-api03-..." style="font-size:12px;margin-bottom:0"></div>
+      <button class="btn btn-primary btn-sm" onclick="saveApiKeyFromSettings()">Save Key</button>
+    </div>
+  </div>
+  <div class="sblock">
     <div class="sblock-title">Device</div>
     <div class="card" style="margin-bottom:0"><p style="font-size:13px;color:var(--text2);margin-bottom:12px">Remove all saved data from this device.</p><button class="btn btn-danger btn-sm" onclick="resetApp()">Reset App</button></div>
   </div>
 </div>
 
+
+<div class="screen" id="screen-apikey">
+  <div class="setup-hero">
+    <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAlgAAAEXCAIAAAD+4q2vAAABCGlDQ1BJQ0MgUHJvZmlsZQAAeJxjYGA8wQAELAYMDLl5JUVB7k4KEZFRCuwPGBiBEAwSk4sLGHADoKpv1yBqL+viUYcLcKakFicD6Q9ArFIEtBxopAiQLZIOYWuA2EkQtg2IXV5SUAJkB4DYRSFBzkB2CpCtkY7ETkJiJxcUgdT3ANk2uTmlyQh3M/Ck5oUGA2kOIJZhKGYIYnBncAL5H6IkfxEDg8VXBgbmCQixpJkMDNtbGRgkbiHEVBYwMPC3MDBsO48QQ4RJQWJRIliIBYiZ0tIYGD4tZ2DgjWRgEL7AwMAVDQsIHG5TALvNnSEfCNMZchhSgSKeDHkMyQx6QJYRgwGDIYMZAKbWPz9HbOBQAAAB/klEQVR4nO3BMQEAAADCoPVPbQ0PoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIBTA6s4AAHXymwcAAAAAElFTkSuQmCC" alt="MAXA Group">
+    <p>Parts ID Setup</p>
+  </div>
+  <div class="card">
+    <div class="card-title">One-time Setup</div>
+    <p style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:16px">To use the Parts ID feature you need a free Anthropic API key. This is stored only on your device and never shared.</p>
+    <div class="field">
+      <label>Anthropic API Key</label>
+      <input type="text" id="apiKeyInput" placeholder="sk-ant-api03-..." style="font-size:12px;letter-spacing:0.02em">
+    </div>
+    <div style="margin-top:4px;margin-bottom:16px">
+      <a href="https://console.anthropic.com" target="_blank" style="font-size:12px;color:var(--yellow-dim);font-weight:600">Get a free key at console.anthropic.com →</a>
+    </div>
+    <button class="btn btn-primary" onclick="saveApiKey()">Save Key & Continue</button>
+  </div>
+  <div style="text-align:center;padding:8px">
+    <button class="btn btn-outline btn-sm" onclick="backFromApiKey()" style="width:auto">Cancel</button>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 <script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
 <script>
@@ -284,6 +314,8 @@ function showMainApp(){
   document.getElementById('settingsCompany').value=state.company;
   document.getElementById('settingsPostcode').value=state.postcode;
   document.getElementById('thresholdInput').value=state.threshold;
+  var savedKey=localStorage.getItem('maxa_api_key')||'';
+  if(document.getElementById('settingsApiKey'))document.getElementById('settingsApiKey').value=savedKey;
   switchTab('scanner');renderBasket();updateTotals();
 }
 function switchTab(tab){
@@ -477,6 +509,12 @@ function saveThreshold(){
   if(isNaN(v)||v<0){showToast('Invalid threshold','error');return;}
   state.threshold=v;saveState();updateTotals();showToast('Threshold set to £'+v.toFixed(2),'success');
 }
+function saveApiKeyFromSettings(){
+  var k=document.getElementById('settingsApiKey').value.trim();
+  if(!k||k.indexOf('sk-ant')<0){showToast('Please enter a valid API key','error');return;}
+  localStorage.setItem('maxa_api_key',k);
+  showToast('API key saved','success');
+}
 function resetApp(){if(!confirm('This will clear all data from this device. Continue?'))return;localStorage.clear();location.reload();}
 function startPartsCamera(){
   navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}}})
@@ -519,7 +557,8 @@ function analysePartImage(){
     document.getElementById('partsVideo').style.display='none';
     if(partsStream){partsStream.getTracks().forEach(function(t){t.stop();});partsStream=null;}
   }
-  var key=localStorage.getItem('maxa_api_key')||'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';
+  var key=localStorage.getItem('maxa_api_key')||'';
+  if(!key){showApiKeySetup();return;}
   var st=document.getElementById('aiStatus');
   st.className='ai-status loading';
   document.getElementById('aiStatusText').textContent='Identifying part...';
@@ -572,6 +611,26 @@ function showToast(msg,type){
   var el=document.getElementById('toast');
   el.textContent=msg;el.className='toast show '+type;
   clearTimeout(toastTimer);toastTimer=setTimeout(function(){el.classList.remove('show');},3000);
+}
+
+function showApiKeySetup(){
+  document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');});
+  document.getElementById('mainTabs').classList.remove('visible');
+  document.getElementById('screen-apikey').classList.add('active');
+}
+function backFromApiKey(){
+  document.getElementById('mainTabs').classList.add('visible');
+  document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');});
+  document.getElementById('screen-'+state.currentTab).classList.add('active');
+}
+function saveApiKey(){
+  var k=document.getElementById('apiKeyInput').value.trim();
+  if(!k||k.indexOf('sk-ant')<0){showToast('Please enter a valid API key','error');return;}
+  localStorage.setItem('maxa_api_key',k);
+  showToast('API key saved','success');
+  backFromApiKey();
+  // retry the analysis
+  setTimeout(analysePartImage,300);
 }
 init();
 </script>
